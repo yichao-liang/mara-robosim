@@ -1,56 +1,95 @@
-# Python Starter Repo
+# MARA RoboSim
 
-![workflow](https://github.com/yichao-liang/mara-robosim/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/yichao-liang/mara-robosim/actions/workflows/ci.yml/badge.svg)
 
-A basic template for building Python packages.
+A collection of PyBullet robotic manipulation environments for world model learning and causal discovery research. Each environment features a Fetch or Panda robot interacting with objects on a tabletop, with rich contact physics and task-oriented goals.
 
-## Features
-A package built from this starter code will have the following features:
-- **Easy to install** with `pip install -e ".[develop]"` (see `pyproject.toml`)
-- **Continuous integration** with GitHub Actions (see `.github/workflows/ci.yml` and `run_ci_checks.sh`)
-- **Autoformatting** with black, isort, and docformatter (see `run_autoformat.sh`)
-- **Linting** with pytest-pylint (see `.pylintrc`)
-- **Type checking** with mypy (see `pyproject.toml`)
-- **Unit tests** with pytest (see `tests/`)
+## Installation
 
-## Instructions
+```bash
+pip install -e ".[develop]"
+```
 
-### Create an Empty Repository on GitHub
-1. Go to https://github.com/new and follow the instructions on the first page. No need to include a .gitignore, README, or LICENSE; these will be added later. After clicking "Create repository", stop -- don't follow the command line instructions. Remember the NAME of the repository and then go on to step 2.
+## Quick Start
 
-### Set Up the Code
-2. **Clone this repository** and give it the name of your repo: `git clone git@github.com:yichao-liang/mara-robosim.git <NAME>`. You now have a directory called NAME. **Enter** it: `cd <NAME>`.
-3. **Configure the repository:** Make changes to `config.json` and then save.
-4. **Apply the configuration**: Make sure that your changes to `config.json` are finalized because they can only be applied once. When you are ready, run `python apply_configuration.py`.
-5. **Push your changes**: For example, run `git add . && git commit -m "First commit" && git push -u origin main`.
+```python
+import mara_robosim
 
-:tada: **That's it! Your code is ready to use** :tada: You should see your code back on GitHub where you previously had an empty repository.
+mara_robosim.register_all_environments()
+env = mara_robosim.make("mara/Blocks-v0")
+obs, info = env.reset()
+obs, reward, terminated, truncated, info = env.step(env.action_space.sample())
+```
 
-### Common Next Steps
-6. **Make changes** to `pyproject.toml`, especially in the dependencies section.
-7. **Install your repository**: `pip install -e ".[develop]"` (recommended: use a virtualenv).
-8. **Replace the starter files** (`README.md`, `LICENSE`, `config.json`, `apply_configuration.py`, `structs.py`, `utils.py` and the analogous files in `tests/`) with some of your own.
+## Environments
 
-### Configure GitHub (Optional but Recommended)
-9. **Set up branch protections** to prevent accidental changes to your main branch. In `https://github.com/<USER>/<NAME>/settings/branches`:
-    - Click `Add classic branch protection rule`.
-    - The branch pattern name is `main`.
-    - Check "Require a pull request before merging (optionally: uncheck "Require approvals").
-    - Check "Require status checks to pass before merging".
-    - Check "Require branches to be up to date before merging".
-    - Then type in `autoformat`, `static-type-checking`, `linting`, `unit-tests`.
-    - Check "Do not allow bypassing the above settings".
-10. **Set up repository settings** in `https://github.com/<USER>/<NAME>/settings`:
-    - Check "Allow auto-merge".
-    - Check "Automatically delete head branches".
-    - Uncheck "Allow merge commits".
-    - Uncheck "Allow rebase merging".
-11. **Set up contributor settings** to lower the barrier for external contributions. In `https://github.com/<USER>/<NAME>/settings/actions`:
-    - Update "Fork pull request workflows from outside collaborators" to "Require approval for first-time contributors who are new to GitHub".
+| Environment ID | Description |
+|---|---|
+| `mara/Ants-v0` | Place food items near ants on a tabletop |
+| `mara/Balance-v0` | Balance blocks on a beam by pressing buttons |
+| `mara/Barrier-v0` | Move blocks past barriers to target locations |
+| `mara/Blocks-v0` | Stack and arrange blocks on a table |
+| `mara/Boil-v0` | Fill and boil water using a jug, faucet, and burner |
+| `mara/Circuit-v0` | Assemble circuit components (batteries, wires, switch) |
+| `mara/Coffee-v0` | Operate a coffee machine: plug in, brew, pour, serve |
+| `mara/Cover-v0` | Place blocks to cover target regions |
+| `mara/Domino-v0` | Set up domino chains with fans, balls, and ramps |
+| `mara/Fan-v0` | Use fans to blow lightweight objects to goals |
+| `mara/Float-v0` | Float light blocks by filling a container with water |
+| `mara/Grow-v0` | Grow plants by watering them |
+| `mara/Laser-v0` | Align lasers and mirrors to hit targets |
+| `mara/MagicBin-v0` | Sort objects into magic bins that transform them |
+| `mara/Switch-v0` | Toggle switches to open doors and move objects |
 
+## Standalone API
 
-## Notes
-- Branch protections only work if you have a public repository or an Enterprise account.
-- You can include your repository as a dependency if it's hosted on GitHub. For example, alongside requirements like `numpy` or `matplotlib` in a `pyproject.toml` or `requirements.txt` or `setup.py`, you can list `"<PACKAGE-NAME>@git+https://github.com/<USER>/<NAME>.git"`.
-- Feel free to open pull requests to improve this repository.
-- You can use this code and modify it in any way without any attributions or acknowledgements (see `LICENSE`).
+Each environment can also be used directly without the Gymnasium wrapper:
+
+```python
+from mara_robosim.config import PyBulletConfig
+from mara_robosim.envs.blocks import PyBulletBlocksEnv
+
+config = PyBulletConfig(seed=0, num_train_tasks=5, num_test_tasks=5)
+env = PyBulletBlocksEnv(config=config, use_gui=False)
+tasks = env.get_train_tasks()
+state = env.reset("train", 0)
+```
+
+## Project Structure
+
+```
+src/mara_robosim/
+    __init__.py              # Gymnasium registration and make()
+    structs.py               # Type, Object, State, Action, Predicate, etc.
+    config.py                # PyBulletConfig (frozen dataclass)
+    utils.py                 # Asset paths, geometry helpers
+    gymnasium_wrapper.py     # Gymnasium.Env wrapper
+    pybullet_helpers/        # Robot control, IK, controllers, geometry
+    envs/                    # All 15 environment implementations
+    assets/                  # URDFs, meshes, textures
+tests/
+    test_structs.py
+    test_config.py
+    test_gymnasium.py
+    test_pybullet_helpers.py
+    test_all_envs.py
+    test_ants_env.py
+```
+
+## CI Checks
+
+- **black** -- code formatting
+- **isort** -- import ordering
+- **pylint** -- linting
+- **mypy** -- static type checking
+- **pytest** -- unit tests
+
+Run locally:
+
+```bash
+python -m black --check src tests
+python -m isort --check-only src tests
+python -m mypy src
+python -m pytest . --pylint -m pylint --pylint-rcfile=.pylintrc
+python -m pytest tests/
+```
