@@ -7,7 +7,7 @@ from typing import List, Optional
 
 import numpy as np
 import pybullet as p
-from gym.spaces import Box
+from gymnasium.spaces import Box
 
 from mara_robosim.pybullet_helpers.geometry import Pose
 from mara_robosim.pybullet_helpers.ikfast import IKFastInfo

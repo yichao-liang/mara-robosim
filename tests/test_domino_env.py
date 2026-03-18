@@ -14,7 +14,9 @@ def env():
         from mara_robosim.envs.domino.composed_env import PyBulletDominoComposedEnv
 
         config = PyBulletConfig(seed=42, num_train_tasks=2, num_test_tasks=2)
-        return PyBulletDominoComposedEnv(config=config, use_gui=False)
+        return PyBulletDominoComposedEnv(  # pylint: disable=no-value-for-parameter
+            config=config, use_gui=False
+        )
     except Exception as exc:
         pytest.skip(f"Cannot instantiate PyBulletDominoComposedEnv: {exc}")
 

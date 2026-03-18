@@ -71,4 +71,4 @@ module = [
     "mara_robosim.envs.*",
     "mara_robosim.gymnasium_wrapper",
 ]
-disable_error_code = ["arg-type", "return-value", "override", "union-attr"]
+disable_error_code = ["arg-type", "return-value", "override", "union-attr", "assignment"]

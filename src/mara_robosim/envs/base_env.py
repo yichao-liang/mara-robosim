@@ -20,7 +20,7 @@ from typing import Any, ClassVar, Dict, List, Optional, Sequence, Set, Tuple, ca
 import matplotlib
 import numpy as np
 import pybullet as p
-from gym.spaces import Box
+from gymnasium.spaces import Box
 from PIL import Image
 
 from mara_robosim import utils
