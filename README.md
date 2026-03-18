@@ -72,8 +72,7 @@ tests/
     test_config.py
     test_gymnasium.py
     test_pybullet_helpers.py
-    test_all_envs.py
-    test_ants_env.py
+    test_<env>_env.py         # one per environment (15 files)
 ```
 
 ## CI Checks
@@ -87,9 +86,5 @@ tests/
 Run locally:
 
 ```bash
-python -m black --check src tests
-python -m isort --check-only src tests
-python -m mypy src
-python -m pytest . --pylint -m pylint --pylint-rcfile=.pylintrc
-python -m pytest tests/
+./run_ci_checks.sh
 ```
