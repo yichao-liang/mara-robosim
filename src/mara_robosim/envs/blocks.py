@@ -164,6 +164,7 @@ class PyBulletBlocksEnv(PyBulletEnv):
             asset_path="urdf/table.urdf",
             position=cls._table_pose,
             orientation=cls._table_orientation,
+            scale=1.0,
             use_fixed_base=True,
             physics_client_id=physics_client_id,
         )
