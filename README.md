@@ -23,23 +23,23 @@ obs, reward, terminated, truncated, info = env.step(env.action_space.sample())
 
 ## Environments
 
-| Environment ID | Description |
-|---|---|
-| `mara/Ants-v0` | Place food items near ants on a tabletop |
-| `mara/Balance-v0` | Balance blocks on a beam by pressing buttons |
-| `mara/Barrier-v0` | Move blocks past barriers to target locations |
-| `mara/Blocks-v0` | Stack and arrange blocks on a table |
-| `mara/Boil-v0` | Fill and boil water using a jug, faucet, and burner |
-| `mara/Circuit-v0` | Assemble circuit components (batteries, wires, switch) |
-| `mara/Coffee-v0` | Operate a coffee machine: plug in, brew, pour, serve |
-| `mara/Cover-v0` | Place blocks to cover target regions |
-| `mara/Domino-v0` | Set up domino chains with fans, balls, and ramps |
-| `mara/Fan-v0` | Use fans to blow lightweight objects to goals |
-| `mara/Float-v0` | Float light blocks by filling a container with water |
-| `mara/Grow-v0` | Grow plants by watering them |
-| `mara/Laser-v0` | Align lasers and mirrors to hit targets |
-| `mara/MagicBin-v0` | Sort objects into magic bins that transform them |
-| `mara/Switch-v0` | Toggle switches to open doors and move objects |
+| Environment | Preview | Description |
+|---|---|---|
+| `mara/Ants-v0` | ![](docs/assets/gifs/pybullet_ants.gif) | Place food items near ants on a tabletop |
+| `mara/Balance-v0` | ![](docs/assets/gifs/pybullet_balance.gif) | Balance blocks on a beam by pressing buttons |
+| `mara/Barrier-v0` | ![](docs/assets/gifs/pybullet_barrier.gif) | Move blocks past barriers to target locations |
+| `mara/Blocks-v0` | ![](docs/assets/gifs/pybullet_blocks.gif) | Stack and arrange blocks on a table |
+| `mara/Boil-v0` | ![](docs/assets/gifs/pybullet_boil.gif) | Fill and boil water using a jug, faucet, and burner |
+| `mara/Circuit-v0` | ![](docs/assets/gifs/pybullet_circuit.gif) | Assemble circuit components (batteries, wires, switch) |
+| `mara/Coffee-v0` | ![](docs/assets/gifs/pybullet_coffee.gif) | Operate a coffee machine: plug in, brew, pour, serve |
+| `mara/Cover-v0` | ![](docs/assets/gifs/pybullet_cover.gif) | Place blocks to cover target regions |
+| `mara/Domino-v0` | ![](docs/assets/gifs/pybullet_domino.gif) | Set up domino chains with fans, balls, and ramps |
+| `mara/Fan-v0` | ![](docs/assets/gifs/pybullet_fan.gif) | Use fans to blow lightweight objects to goals |
+| `mara/Float-v0` | ![](docs/assets/gifs/pybullet_float.gif) | Float light blocks by filling a container with water |
+| `mara/Grow-v0` | ![](docs/assets/gifs/pybullet_grow.gif) | Grow plants by watering them |
+| `mara/Laser-v0` | ![](docs/assets/gifs/pybullet_laser.gif) | Align lasers and mirrors to hit targets |
+| `mara/MagicBin-v0` | ![](docs/assets/gifs/pybullet_magic_bin.gif) | Sort objects into magic bins that transform them |
+| `mara/Switch-v0` | ![](docs/assets/gifs/pybullet_switch.gif) | Toggle switches to open doors and move objects |
 
 ## Standalone API
 
