@@ -142,8 +142,10 @@ class MARARoboSimEnv(gymnasium.Env):
     def render(self) -> Optional[NDArray]:
         if self.render_mode == "rgb_array":
             obs = self._env.get_observation(render=True)
-            if hasattr(obs, "images") and obs.images:
-                return list(obs.images.values())[0]
+            if hasattr(obs, "state_image"):
+                img = obs.state_image
+                if img is not None:
+                    return np.array(img, dtype=np.uint8)
         return None
 
     def close(self) -> None:
