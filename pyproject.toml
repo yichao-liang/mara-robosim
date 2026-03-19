@@ -53,7 +53,7 @@ wrap-descriptions = 88
 strict_equality = true
 disallow_untyped_calls = true
 warn_unreachable = true
-exclude = ["venv/*", ".venv/*"]
+exclude = ["venv/*", ".venv/*", "scripts/*"]
 
 [[tool.mypy.overrides]]
 module = [
