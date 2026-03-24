@@ -123,7 +123,7 @@ class PyBulletLaserEnv(PyBulletEnv):
         self, config: Optional[PyBulletConfig] = None, use_gui: bool = True
     ) -> None:
         config = LaserConfig._upgrade(config or LaserConfig())
-        self._config = config  # set early; base __init__ will also set it
+        self._config: LaserConfig = config  # narrow type for mypy
 
         # Create environment objects (logic-level)
         self._robot = Object("robot", self._robot_type)

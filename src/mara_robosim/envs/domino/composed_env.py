@@ -115,6 +115,7 @@ class PyBulletDominoComposedEnv(PyBulletEnv):
             use_gui: Whether to use PyBullet GUI.
         """
         config = DominoConfig._upgrade(config or DominoConfig())
+        self._config: DominoConfig = config  # narrow type for mypy
         self._components = components
 
         # Create robot object
@@ -414,6 +415,7 @@ class PyBulletDominoEnvNew(PyBulletDominoComposedEnv):
         self, config: Optional[DominoConfig] = None, use_gui: bool = True
     ) -> None:
         config = DominoConfig._upgrade(config or DominoConfig())
+        self._config: DominoConfig = config  # narrow type for mypy
         workspace_bounds = {
             "x_lb": self.x_lb,
             "x_ub": self.x_ub,
@@ -456,6 +458,7 @@ class PyBulletDominoFanEnvNew(PyBulletDominoComposedEnv):
         self, config: Optional[DominoConfig] = None, use_gui: bool = True
     ) -> None:
         config = DominoConfig._upgrade(config or DominoConfig())
+        self._config: DominoConfig = config  # narrow type for mypy
         workspace_bounds = {
             "x_lb": self.x_lb,
             "x_ub": self.x_ub,
@@ -528,6 +531,7 @@ class PyBulletDominoFanRampEnv(PyBulletDominoComposedEnv):
         self, config: Optional[DominoConfig] = None, use_gui: bool = True
     ) -> None:
         config = DominoConfig._upgrade(config or DominoConfig())
+        self._config: DominoConfig = config  # narrow type for mypy
         workspace_bounds = {
             "x_lb": self.x_lb,
             "x_ub": self.x_ub,
@@ -606,6 +610,7 @@ class PyBulletDominoFanRampStairsEnv(PyBulletDominoComposedEnv):
         self, config: Optional[DominoConfig] = None, use_gui: bool = True
     ) -> None:
         config = DominoConfig._upgrade(config or DominoConfig())
+        self._config: DominoConfig = config  # narrow type for mypy
         workspace_bounds = {
             "x_lb": self.x_lb,
             "x_ub": self.x_ub,

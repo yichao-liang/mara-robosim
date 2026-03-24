@@ -121,6 +121,7 @@ class PyBulletGrowEnv(PyBulletEnv):
         self, config: Optional[GrowConfig] = None, use_gui: bool = True
     ) -> None:
         config = GrowConfig._upgrade(config or GrowConfig())
+        self._config: GrowConfig = config  # narrow type for mypy
 
         # Create the single robot Object
         self._robot = Object("robot", self._robot_type)

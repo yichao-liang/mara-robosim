@@ -118,7 +118,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
         self, config: Optional[PyBulletConfig] = None, use_gui: bool = True
     ) -> None:
         config = CircuitConfig._upgrade(config or CircuitConfig())
-        self._config = config  # set early; base __init__ will also set it
+        self._config: CircuitConfig = config  # narrow type for mypy
 
         # Objects
         self._robot = Object("robot", self._robot_type)

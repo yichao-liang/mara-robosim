@@ -99,6 +99,7 @@ class PyBulletCoverEnv(PyBulletEnv):
         self, config: Optional[CoverConfig] = None, use_gui: bool = True
     ) -> None:
         config = CoverConfig._upgrade(config or CoverConfig())
+        self._config: CoverConfig = config  # narrow type for mypy
 
         # Predicates (must be set before super().__init__ because
         # task generation may need them).

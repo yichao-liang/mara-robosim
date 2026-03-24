@@ -270,6 +270,7 @@ class PyBulletCoffeeEnv(PyBulletEnv):
         use_gui: bool = True,
     ) -> None:
         config = CoffeeConfig._upgrade(config or CoffeeConfig())
+        self._config: CoffeeConfig = config  # narrow type for mypy
 
         # Camera overrides based on domain flags
         if config.render_grid_world:

@@ -82,7 +82,7 @@ class PyBulletBlocksEnv(PyBulletEnv):
         # super().__init__() (which calls _store_pybullet_bodies and needs
         # self._blocks to exist).
         config = BlocksConfig._upgrade(config or BlocksConfig())
-        self._config = config
+        self._config: BlocksConfig = config  # narrow type for mypy
 
         # Types (merged from BlocksEnv)
         self._block_type = Type(

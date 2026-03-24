@@ -148,7 +148,7 @@ class PyBulletFloatEnv(PyBulletEnv):
         self, config: Optional[PyBulletConfig] = None, use_gui: bool = True
     ) -> None:
         config = FloatConfig._upgrade(config or FloatConfig())
-        self._config = config  # set early; base __init__ will also set it
+        self._config: FloatConfig = config  # narrow type for mypy
 
         self._robot = Object("robot", self._robot_type)
         self._vessel = Object("vessel", self._vessel_type)

@@ -219,7 +219,7 @@ class PyBulletBoilEnv(PyBulletEnv):
         self, config: Optional[PyBulletConfig] = None, use_gui: bool = True
     ) -> None:
         config = BoilConfig._upgrade(config or BoilConfig())
-        self._config = config  # set early; base __init__ will also set it
+        self._config: BoilConfig = config  # narrow type for mypy
 
         # Create the robot as an Object
         self._robot = Object("robot", self._robot_type)

@@ -114,7 +114,7 @@ class PyBulletAntsEnv(PyBulletEnv):
         debug_layout: bool = True,
     ) -> None:
         config = AntsConfig._upgrade(config or AntsConfig())
-        self._config = config  # set early; base __init__ will also set it
+        self._config: AntsConfig = config  # narrow type for mypy
         # Create single robot
         self._robot = Object("robot", self._robot_type)
 

@@ -108,7 +108,7 @@ class PyBulletBalanceEnv(PyBulletEnv):
         # super().__init__() (which calls _store_pybullet_bodies and needs
         # self._blocks to exist).
         config = BalanceConfig._upgrade(config or BalanceConfig())
-        self._config = config
+        self._config: BalanceConfig = config  # narrow type for mypy
 
         # Types
         self._block_type = Type(
