@@ -1,8 +1,8 @@
 """Laser env.
 
 A robot interacts with a laser station, mirrors, and targets on a table.
-Turning on the station emits a laser beam that can reflect off mirrors or
-partially pass through split mirrors, and stops when a target is hit.
+Turning on the station emits a laser beam that can reflect off mirrors
+or partially pass through split mirrors, and stops when a target is hit.
 """
 
 import logging
@@ -13,7 +13,7 @@ import numpy as np
 import pybullet as p
 
 from mara_robosim import utils
-from mara_robosim.config import PyBulletConfig
+from mara_robosim.config import LaserConfig, PyBulletConfig
 from mara_robosim.envs.base_env import PyBulletEnv
 from mara_robosim.pybullet_helpers.geometry import Pose3D, Quaternion
 from mara_robosim.pybullet_helpers.objects import create_object, update_object
@@ -105,12 +105,6 @@ class PyBulletLaserEnv(PyBulletEnv):
     _laser_life_time: ClassVar[float] = 0.3
 
     # -------------------------------------------------------------------------
-    # Domain-specific settings (were CFG.laser_* in predicators)
-    # -------------------------------------------------------------------------
-    laser_use_debug_line_for_beams: ClassVar[bool] = False
-    laser_zero_reflection_angle: ClassVar[bool] = False
-
-    # -------------------------------------------------------------------------
     num_targets: ClassVar[int] = 2
     num_split_mirrors: ClassVar[int] = 1
     num_standard_mirrors: ClassVar[int] = 2
@@ -128,6 +122,9 @@ class PyBulletLaserEnv(PyBulletEnv):
     def __init__(
         self, config: Optional[PyBulletConfig] = None, use_gui: bool = True
     ) -> None:
+        config = LaserConfig._upgrade(config or LaserConfig())
+        self._config = config  # set early; base __init__ will also set it
+
         # Create environment objects (logic-level)
         self._robot = Object("robot", self._robot_type)
         self._station = Object("station", self._station_type)
@@ -445,7 +442,7 @@ class PyBulletLaserEnv(PyBulletEnv):
 
         if not best_hit:
             # No intersection => beam goes off into nowhere.
-            if self.laser_use_debug_line_for_beams:
+            if self._config.laser_use_debug_line_for_beams:
                 p.addUserDebugLine(
                     lineFromXYZ=start.tolist(),
                     lineToXYZ=end_pt.tolist(),
@@ -471,7 +468,7 @@ class PyBulletLaserEnv(PyBulletEnv):
         hit_point = np.array(best_hit[3])  # 3D position
 
         # Draw a debug line from start up to the hit point
-        if self.laser_use_debug_line_for_beams:
+        if self._config.laser_use_debug_line_for_beams:
             p.addUserDebugLine(
                 lineFromXYZ=start.tolist(),
                 lineToXYZ=hit_point.tolist(),
@@ -535,7 +532,7 @@ class PyBulletLaserEnv(PyBulletEnv):
         local_normal = rmat[:, 0]
         incoming_norm = incoming_dir / (np.linalg.norm(incoming_dir) + 1e-9)
         # reflection = dir - 2*(dir . normal)*normal
-        if self.laser_zero_reflection_angle:
+        if self._config.laser_zero_reflection_angle:
             if (incoming_norm @ local_normal) < 0:
                 reflect = local_normal
             else:

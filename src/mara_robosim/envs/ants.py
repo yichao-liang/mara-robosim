@@ -10,7 +10,7 @@ import numpy as np
 import pybullet as p
 
 from mara_robosim import utils
-from mara_robosim.config import PyBulletConfig
+from mara_robosim.config import AntsConfig, PyBulletConfig
 from mara_robosim.envs.base_env import PyBulletEnv, create_pybullet_block
 from mara_robosim.pybullet_helpers.objects import (
     create_object,
@@ -89,9 +89,6 @@ class PyBulletAntsEnv(PyBulletEnv):
     ant_mass: ClassVar[float] = 0.05
     ant_step_size: ClassVar[float] = 0.005
 
-    # Whether ants are attracted to fixed points instead of food objects
-    ants_attracted_to_points: ClassVar[bool] = False
-
     # -------------------------------------------------------------------------
     # Types
     _robot_type = Type("robot", ["x", "y", "z", "fingers", "tilt", "wrist"])
@@ -112,10 +109,12 @@ class PyBulletAntsEnv(PyBulletEnv):
 
     def __init__(
         self,
-        config: Optional[PyBulletConfig] = None,
+        config: Optional[AntsConfig] = None,
         use_gui: bool = True,
         debug_layout: bool = True,
     ) -> None:
+        config = AntsConfig._upgrade(config or AntsConfig())
+        self._config = config  # set early; base __init__ will also set it
         # Create single robot
         self._robot = Object("robot", self._robot_type)
 
@@ -133,7 +132,7 @@ class PyBulletAntsEnv(PyBulletEnv):
             ant_obj = Object(name, self._ant_type)
             self._ants.append(ant_obj)
 
-        if self.ants_attracted_to_points:
+        if self._config.ants_attracted_to_points:
             self._ants_to_xy: Dict[Object, Tuple[float, float]] = dict()
 
         super().__init__(config, use_gui)
@@ -260,7 +259,7 @@ class PyBulletAntsEnv(PyBulletEnv):
         raise ValueError(f"Unknown feature {feature} for object {obj}")
 
     def _reset_custom_env_state(self, state: State) -> None:
-        if self.ants_attracted_to_points:
+        if self._config.ants_attracted_to_points:
             self._ants_to_xy = dict()
             for ant_obj in state.get_objects(self._ant_type):
                 self._ants_to_xy[ant_obj] = (
@@ -319,7 +318,7 @@ class PyBulletAntsEnv(PyBulletEnv):
         for ant_obj in self._ants:
             ax = state.get(ant_obj, "x")
             ay = state.get(ant_obj, "y")
-            if self.ants_attracted_to_points:
+            if self._config.ants_attracted_to_points:
                 fx, fy = self._ants_to_xy[ant_obj]
             else:
                 target_food_obj = None

@@ -11,7 +11,7 @@ import numpy as np
 import pybullet as p
 
 from mara_robosim import utils
-from mara_robosim.config import PyBulletConfig
+from mara_robosim.config import CircuitConfig, PyBulletConfig
 from mara_robosim.envs.base_env import PyBulletEnv
 from mara_robosim.pybullet_helpers.geometry import Pose, Pose3D, Quaternion
 from mara_robosim.pybullet_helpers.objects import create_object, update_object
@@ -38,10 +38,6 @@ class PyBulletCircuitEnv(PyBulletEnv):
     TODO: the switchOn predicate is not determined based on the input State
     object but the pybullet state, which may cause some problem.
     """
-
-    # Domain-specific settings (previously in predicators settings.py).
-    circuit_light_doesnt_need_battery: ClassVar[bool] = False
-    circuit_battery_in_box: ClassVar[bool] = False
 
     # Workspace / table bounds (adjust as you wish).
     connected_angle_tol: ClassVar[float] = 1e-1
@@ -121,6 +117,8 @@ class PyBulletCircuitEnv(PyBulletEnv):
     def __init__(
         self, config: Optional[PyBulletConfig] = None, use_gui: bool = True
     ) -> None:
+        config = CircuitConfig._upgrade(config or CircuitConfig())
+        self._config = config  # set early; base __init__ will also set it
 
         # Objects
         self._robot = Object("robot", self._robot_type)
@@ -132,7 +130,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
         # C battery objects (only used when circuit_battery_in_box is False)
         self._c_battery1: Optional[Object] = None
         self._c_battery2: Optional[Object] = None
-        if not self.circuit_battery_in_box:
+        if not self._config.circuit_battery_in_box:
             self._c_battery1 = Object("c_battery1", self._c_battery_type)
             self._c_battery2 = Object("c_battery2", self._c_battery_type)
 
@@ -176,7 +174,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
         )
 
         # Predicate to check if a C battery is in the battery box
-        if not self.circuit_battery_in_box:
+        if not self._config.circuit_battery_in_box:
             self._InBatteryBox = Predicate(
                 "InBatteryBox", [self._c_battery_type], self._InBatteryBox_holds
             )
@@ -197,7 +195,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
             # self._CircuitClosed_abs,
             self._SwitchedOn,
         }
-        if not self.circuit_battery_in_box:
+        if not self._config.circuit_battery_in_box:
             preds.add(self._InBatteryBox)
         return preds
 
@@ -213,7 +211,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
             self._switch_box_type,
             self._light_type,
         }
-        if not self.circuit_battery_in_box:
+        if not self._config.circuit_battery_in_box:
             types_set.add(self._c_battery_type)
         return types_set
 
@@ -223,6 +221,8 @@ class PyBulletCircuitEnv(PyBulletEnv):
     def initialize_pybullet(
         cls, using_gui: bool, config: Optional[PyBulletConfig] = None
     ) -> Tuple[int, SingleArmPyBulletRobot, Dict[str, Any]]:
+        if config is None:
+            config = CircuitConfig()
         physics_client_id, pybullet_robot, bodies = super().initialize_pybullet(
             using_gui, config=config
         )
@@ -239,7 +239,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
         bodies["table_id"] = table_id
 
         # Create the battery box/switch assembly
-        if cls.circuit_battery_in_box:
+        if getattr(config, "circuit_battery_in_box", False):
             # Load without box, just switch and snap
             battery_urdf = (
                 "urdf/partnet_mobility/switch/102812/battery_switch_snap.urdf"
@@ -259,7 +259,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
         bodies["battery_id"] = battery_id
 
         # Create C battery objects if not using battery_in_box mode
-        if not cls.circuit_battery_in_box:
+        if not getattr(config, "circuit_battery_in_box", False):
             c_battery_ids = []
             for _ in range(2):
                 c_battery_id = create_object(
@@ -315,7 +315,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
 
         # Store C battery IDs if they exist
         if (
-            not self.circuit_battery_in_box
+            not self._config.circuit_battery_in_box
             and self._c_battery1 is not None
             and self._c_battery2 is not None
         ):
@@ -359,14 +359,14 @@ class PyBulletCircuitEnv(PyBulletEnv):
 
         # Check basic conditions for turning on the bulb
         basic_conditions = self._SwitchedOn_holds(next_state, [self._battery]) and (
-            self.circuit_light_doesnt_need_battery
+            self._config.circuit_light_doesnt_need_battery
             or self._CircuitClosed_holds(next_state, [self._light, self._battery])
         )
 
         # Additional condition: if not using battery_in_box mode,
         # both C batteries must be in the battery box
         if (
-            not self.circuit_battery_in_box
+            not self._config.circuit_battery_in_box
             and self._c_battery1 is not None
             and self._c_battery2 is not None
         ):
@@ -552,7 +552,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
 
     def _draw_battery_box_debug_lines(self, state: State) -> None:
         """Draw debug lines to visualize the battery box region."""
-        if not self.circuit_battery_in_box:
+        if not self._config.circuit_battery_in_box:
             # Get battery box position (based on the switch box position)
             switch_box_x = state.get(self._battery, "x")
             switch_box_y = state.get(self._battery, "y")
@@ -824,7 +824,7 @@ class PyBulletCircuitEnv(PyBulletEnv):
 
             # Add C battery objects if not using battery_in_box mode
             if (
-                not self.circuit_battery_in_box
+                not self._config.circuit_battery_in_box
                 and self._c_battery1 is not None
                 and self._c_battery2 is not None
             ):

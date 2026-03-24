@@ -1,8 +1,8 @@
 """PyBullet Fan environment.
 
-A ball is blown around by fans in a maze. Fans are controlled by switches
-that the robot can toggle. The goal is to navigate the ball to a target
-location by activating the correct fans.
+A ball is blown around by fans in a maze. Fans are controlled by
+switches that the robot can toggle. The goal is to navigate the ball to
+a target location by activating the correct fans.
 """
 
 from collections import deque
@@ -12,7 +12,7 @@ import numpy as np
 import pybullet as p
 
 from mara_robosim import utils
-from mara_robosim.config import PyBulletConfig
+from mara_robosim.config import FanConfig, PyBulletConfig
 from mara_robosim.envs.base_env import (
     PyBulletEnv,
     create_pybullet_block,
@@ -281,8 +281,9 @@ class PyBulletFanEnv(PyBulletEnv):
     # Environment initialization
     # -------------------------------------------------------------------------
     def __init__(
-        self, config: Optional[PyBulletConfig] = None, use_gui: bool = True
+        self, config: Optional[FanConfig] = None, use_gui: bool = True
     ) -> None:
+        config = FanConfig._upgrade(config or FanConfig())
         self._robot = Object("robot", self._robot_type)
 
         # Fans - create one fan object per side instead of multiple

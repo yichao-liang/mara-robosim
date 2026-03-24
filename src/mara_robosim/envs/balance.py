@@ -11,7 +11,7 @@ import numpy as np
 import pybullet as p
 
 from mara_robosim import utils
-from mara_robosim.config import PyBulletConfig
+from mara_robosim.config import BalanceConfig, PyBulletConfig
 from mara_robosim.envs.base_env import PyBulletEnv, create_pybullet_block
 from mara_robosim.pybullet_helpers.geometry import Pose3D, Quaternion
 from mara_robosim.pybullet_helpers.robots import SingleArmPyBulletRobot
@@ -30,12 +30,7 @@ from mara_robosim.structs import (
 class PyBulletBalanceEnv(PyBulletEnv):
     """PyBullet Balance domain."""
 
-    # -- Domain-specific defaults ----------------------------------------------
-    _block_size: ClassVar[float] = 0.045
-    _num_blocks_train: ClassVar[List[int]] = [2, 4]
-    _num_blocks_test: ClassVar[List[int]] = [4, 6]
-    _holding_goals: ClassVar[bool] = False
-    _weird_balance: ClassVar[bool] = False
+    # Domain-specific defaults are now in BalanceConfig (self._config).
 
     # -- Table parameters ---------------------------------------------------
     _table_height: ClassVar[float] = 0.4
@@ -107,8 +102,14 @@ class PyBulletBalanceEnv(PyBulletEnv):
     _block_mass: ClassVar[float] = 1
 
     def __init__(
-        self, config: Optional[PyBulletConfig] = None, use_gui: bool = True
+        self, config: Optional[BalanceConfig] = None, use_gui: bool = True
     ) -> None:
+        # Resolve the config early so block creation can read it before
+        # super().__init__() (which calls _store_pybullet_bodies and needs
+        # self._blocks to exist).
+        config = BalanceConfig._upgrade(config or BalanceConfig())
+        self._config = config
+
         # Types
         self._block_type = Type(
             "block", ["x", "y", "z", "is_held", "color_r", "color_g", "color_b"]
@@ -124,10 +125,12 @@ class PyBulletBalanceEnv(PyBulletEnv):
         self._machine = Object("mac", self._machine_type)
         self._blocks = [
             Object(f"block{i}", self._block_type)
-            for i in range(max(self._num_blocks_train + self._num_blocks_test))
+            for i in range(
+                max(self._config.num_blocks_train + self._config.num_blocks_test)
+            )
         ]
 
-        super().__init__(config, use_gui)
+        super().__init__(config=self._config, use_gui=use_gui)
 
         # Predicates
         self._DirectlyOn = Predicate(
@@ -178,7 +181,7 @@ class PyBulletBalanceEnv(PyBulletEnv):
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
-        if self._holding_goals:
+        if self._config.holding_goals:
             return {self._Holding}
         return {self._DirectlyOn, self._DirectlyOnPlate}
 
@@ -270,9 +273,12 @@ class PyBulletBalanceEnv(PyBulletEnv):
         # Create blocks. Note that we create the maximum number once, and then
         # later on, in reset_state(), we will remove blocks from the workspace
         # (teleporting them far away) based on which ones are in the state.
-        num_blocks = max(max(cls._num_blocks_train), max(cls._num_blocks_test))
+        cfg = config or BalanceConfig()
+        num_blocks_train = getattr(cfg, "num_blocks_train", (2, 4))
+        num_blocks_test = getattr(cfg, "num_blocks_test", (4, 6))
+        num_blocks = max(max(num_blocks_train), max(num_blocks_test))
         block_ids = []
-        block_size = cls._block_size
+        block_size = getattr(cfg, "block_size", 0.045)
         for i in range(num_blocks):
             color = cls._obj_colors[i % len(cls._obj_colors)]
             half_extents = (block_size / 2.0, block_size / 2.0, block_size / 2.0)
@@ -356,10 +362,10 @@ class PyBulletBalanceEnv(PyBulletEnv):
         """Domain-specific reset logic.
 
         The base ``_reset_state`` has already handled standard features
-        for objects that appear in ``_get_all_objects()``, so here we just
-        do custom domain-specific tasks: setting block colors, hiding unused
-        blocks, updating button colour, and running the beam-balancing
-        update.
+        for objects that appear in ``_get_all_objects()``, so here we
+        just do custom domain-specific tasks: setting block colors,
+        hiding unused blocks, updating button colour, and running the
+        beam-balancing update.
         """
         # block objs in the state
         block_objs = state.get_objects(self._block_type)
@@ -380,7 +386,7 @@ class PyBulletBalanceEnv(PyBulletEnv):
 
         # For blocks beyond the number actually in the state, put them out of
         # view:
-        h = self._block_size
+        h = self._config.block_size
         oov_x, oov_y = self._out_of_view_xy
         for i in range(len(block_objs), len(self._blocks)):
             p.resetBasePositionAndOrientation(
@@ -408,13 +414,13 @@ class PyBulletBalanceEnv(PyBulletEnv):
     def _update_balance_beam(self, state: State) -> None:
         """Shift the plates, beams, and blocks on them to simulate a balance.
 
-        Ensures rising sides move blocks first then plate, and dropping sides
-        move plate first then blocks.
+        Ensures rising sides move blocks first then plate, and dropping
+        sides move plate first then blocks.
         """
         left_count = self.count_num_blocks(state, self._plate1)
         right_count = self.count_num_blocks(state, self._plate3)
         diff = left_count - right_count
-        if self._weird_balance:
+        if self._config.weird_balance:
             diff *= -1
         if diff == self._prev_diff:
             return
@@ -558,7 +564,7 @@ class PyBulletBalanceEnv(PyBulletEnv):
         y2 = state.get(block2, "y")
         z2 = state.get(block2, "z")
         return np.allclose(
-            [x1, y1, z1], [x2, y2, z2 + self._block_size], atol=self.on_tol
+            [x1, y1, z1], [x2, y2, z2 + self._config.block_size], atol=self.on_tol
         )
 
     def _DirectlyOnPlate_holds(self, state: State, objects: Sequence[Object]) -> bool:
@@ -566,7 +572,7 @@ class PyBulletBalanceEnv(PyBulletEnv):
         y = state.get(block, "y")
         z = state.get(block, "z")
         table_z = state.get(table, "z") + self._plate_height / 2
-        desired_z = table_z + self._block_size * 0.5
+        desired_z = table_z + self._config.block_size * 0.5
 
         if (state.get(block, "is_held") < self.held_tol) and (
             desired_z - self.on_tol < z < desired_z + self.on_tol
@@ -614,14 +620,14 @@ class PyBulletBalanceEnv(PyBulletEnv):
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._make_tasks(
             num_tasks=self._config.num_train_tasks,
-            possible_num_blocks=self._num_blocks_train,
+            possible_num_blocks=self._config.num_blocks_train,
             rng=self._train_rng,
         )
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._make_tasks(
             num_tasks=self._config.num_test_tasks,
-            possible_num_blocks=self._num_blocks_test,
+            possible_num_blocks=self._config.num_blocks_test,
             rng=self._test_rng,
         )
 
@@ -694,7 +700,11 @@ class PyBulletBalanceEnv(PyBulletEnv):
         for block, pile_idx in block_to_pile_idx.items():
             pile_i, pile_j = pile_idx
             x, y = pile_to_xy[pile_i]
-            z = self._plate_z + self._plate_height + self._block_size * (0.5 + pile_j)
+            z = (
+                self._plate_z
+                + self._plate_height
+                + self._config.block_size * (0.5 + pile_j)
+            )
             r, g, b = rng.uniform(size=3)
             # [x, y, z, held, color_r, color_g, color_b]
             data[block] = np.array([x, y, z, 0.0, r, g, b])
@@ -712,7 +722,7 @@ class PyBulletBalanceEnv(PyBulletEnv):
     ) -> Set[GroundAtom]:
         """Sample a goal that involves holding a block on top of a pile, or
         rearranging piles."""
-        if self._holding_goals:
+        if self._config.holding_goals:
             pile_idx = rng.choice(len(piles))
             top_block = piles[pile_idx][-1]
             return {GroundAtom(self._Holding, [top_block])}
@@ -750,12 +760,12 @@ class PyBulletBalanceEnv(PyBulletEnv):
         self, x: float, y: float, existing_xys: Set[Tuple[float, float]]
     ) -> bool:
         if all(
-            abs(x - other_x) > self.collision_padding * self._block_size
+            abs(x - other_x) > self.collision_padding * self._config.block_size
             for other_x, _ in existing_xys
         ):
             return True
         if all(
-            abs(y - other_y) > self.collision_padding * self._block_size
+            abs(y - other_y) > self.collision_padding * self._config.block_size
             for _, other_y in existing_xys
         ):
             return True

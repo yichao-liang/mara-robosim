@@ -10,7 +10,7 @@ import numpy as np
 import pybullet as p
 
 from mara_robosim import utils
-from mara_robosim.config import PyBulletConfig
+from mara_robosim.config import GrowConfig, PyBulletConfig
 from mara_robosim.envs.base_env import PyBulletEnv, create_pybullet_block
 from mara_robosim.pybullet_helpers.geometry import Pose3D, Quaternion
 from mara_robosim.pybullet_helpers.objects import create_object, update_object
@@ -105,12 +105,8 @@ class PyBulletGrowEnv(PyBulletEnv):
     _camera_pitch: ClassVar[float] = -38  # 0: low <-> -90: high
     _camera_target: ClassVar[Pose3D] = (0.75, 1.25, 0.42)
 
-    # Domain-specific settings (migrated from predicators CFG)
+    # Domain-specific settings now live in GrowConfig (self._config)
     plant_same_color_as_cup: ClassVar[bool] = False
-    num_cups_train: ClassVar[List[int]] = [2]
-    num_cups_test: ClassVar[List[int]] = [2, 3]
-    num_jugs_train: ClassVar[List[int]] = [2]
-    num_jugs_test: ClassVar[List[int]] = [2]
 
     # Types now include r, g, b features for color
     _robot_type = Type("robot", ["x", "y", "z", "fingers", "tilt", "wrist"])
@@ -122,14 +118,16 @@ class PyBulletGrowEnv(PyBulletEnv):
     )
 
     def __init__(
-        self, config: Optional[PyBulletConfig] = None, use_gui: bool = True
+        self, config: Optional[GrowConfig] = None, use_gui: bool = True
     ) -> None:
+        config = GrowConfig._upgrade(config or GrowConfig())
+
         # Create the single robot Object
         self._robot = Object("robot", self._robot_type)
 
         # Create containers for cups and jugs (create enough for max needed)
-        max_cups = max(max(self.num_cups_train), max(self.num_cups_test))
-        max_jugs = max(max(self.num_jugs_train), max(self.num_jugs_test))
+        max_cups = max(max(config.grow_num_cups_train), max(config.grow_num_cups_test))
+        max_jugs = max(max(config.grow_num_jugs_train), max(config.grow_num_jugs_test))
 
         self._cups: List[Object] = []
         for i in range(max_cups):
@@ -235,8 +233,12 @@ class PyBulletGrowEnv(PyBulletEnv):
         bodies["table_id"] = table_id
 
         # Create the cups (create enough for max needed)
-        max_cups = max(max(cls.num_cups_train), max(cls.num_cups_test))
-        max_jugs = max(max(cls.num_jugs_train), max(cls.num_jugs_test))
+        grow_num_cups_train = getattr(config, "grow_num_cups_train", (2,))
+        grow_num_cups_test = getattr(config, "grow_num_cups_test", (2, 3))
+        grow_num_jugs_train = getattr(config, "grow_num_jugs_train", (2,))
+        grow_num_jugs_test = getattr(config, "grow_num_jugs_test", (2,))
+        max_cups = max(max(grow_num_cups_train), max(grow_num_cups_test))
+        max_jugs = max(max(grow_num_jugs_train), max(grow_num_jugs_test))
 
         cup_ids = []
         for _ in range(max_cups):
@@ -525,8 +527,8 @@ class PyBulletGrowEnv(PyBulletEnv):
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(
             num=self._config.num_train_tasks,
-            num_cups_lst=self.num_cups_train,
-            num_jugs_lst=self.num_jugs_train,
+            num_cups_lst=self._config.grow_num_cups_train,
+            num_jugs_lst=self._config.grow_num_jugs_train,
             rng=self._train_rng,
             is_train=True,
         )
@@ -534,8 +536,8 @@ class PyBulletGrowEnv(PyBulletEnv):
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(
             num=self._config.num_test_tasks,
-            num_cups_lst=self.num_cups_test,
-            num_jugs_lst=self.num_jugs_test,
+            num_cups_lst=self._config.grow_num_cups_test,
+            num_jugs_lst=self._config.grow_num_jugs_test,
             rng=self._test_rng,
             is_train=False,
         )

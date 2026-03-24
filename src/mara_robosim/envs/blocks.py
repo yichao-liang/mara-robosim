@@ -12,7 +12,7 @@ from typing import Any, ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 import numpy as np
 import pybullet as p
 
-from mara_robosim.config import PyBulletConfig
+from mara_robosim.config import BlocksConfig, PyBulletConfig
 from mara_robosim.envs.base_env import PyBulletEnv, create_pybullet_block
 from mara_robosim.pybullet_helpers.geometry import Pose3D, Quaternion
 from mara_robosim.pybullet_helpers.objects import create_object
@@ -32,10 +32,10 @@ from mara_robosim.structs import (
 class PyBulletBlocksEnv(PyBulletEnv):
     """PyBullet Blocks domain.
 
-    Inherits only from :class:`PyBulletEnv` (the mara-robosim base).
-    All domain logic that previously lived in ``BlocksEnv`` (types,
-    predicates, task generation, 2-D simulate helpers) is merged directly
-    into this class.
+    Inherits only from :class:`PyBulletEnv` (the mara-robosim base). All
+    domain logic that previously lived in ``BlocksEnv`` (types,
+    predicates, task generation, 2-D simulate helpers) is merged
+    directly into this class.
     """
 
     # ------------------------------------------------------------------
@@ -60,12 +60,7 @@ class PyBulletBlocksEnv(PyBulletEnv):
     on_tol: ClassVar[float] = 0.01
     collision_padding: ClassVar[float] = 2.0
 
-    # Domain-specific defaults (previously from CFG.blocks_*)
-    _block_size: ClassVar[float] = 0.045
-    _num_blocks_train: ClassVar[List[int]] = [3, 4]
-    _num_blocks_test: ClassVar[List[int]] = [5, 6]
-    _holding_goals: ClassVar[bool] = False
-    _high_towers_are_unstable: ClassVar[bool] = False
+    # Domain-specific defaults are now in BlocksConfig (self._config).
 
     # ------------------------------------------------------------------
     # PyBullet-specific class variables
@@ -81,8 +76,14 @@ class PyBulletBlocksEnv(PyBulletEnv):
     # ------------------------------------------------------------------
 
     def __init__(
-        self, config: Optional[PyBulletConfig] = None, use_gui: bool = True
+        self, config: Optional[BlocksConfig] = None, use_gui: bool = True
     ) -> None:
+        # Resolve the config early so _create_blocks() can read it before
+        # super().__init__() (which calls _store_pybullet_bodies and needs
+        # self._blocks to exist).
+        config = BlocksConfig._upgrade(config or BlocksConfig())
+        self._config = config
+
         # Types (merged from BlocksEnv)
         self._block_type = Type(
             "block",
@@ -96,7 +97,7 @@ class PyBulletBlocksEnv(PyBulletEnv):
         self._create_blocks()
 
         # Call the base PyBulletEnv constructor (sets up physics, robot, etc.)
-        super().__init__(config, use_gui)
+        super().__init__(config=self._config, use_gui=use_gui)
 
         # Predicates (merged from BlocksEnv)
         self._On = Predicate("On", [self._block_type, self._block_type], self._On_holds)
@@ -125,7 +126,7 @@ class PyBulletBlocksEnv(PyBulletEnv):
 
     @property
     def goal_predicates(self) -> Set[Predicate]:
-        if self._holding_goals:
+        if self._config.holding_goals:
             return {self._Holding}
         return {self._On, self._OnTable}
 
@@ -138,7 +139,9 @@ class PyBulletBlocksEnv(PyBulletEnv):
     # ------------------------------------------------------------------
 
     def _create_blocks(self) -> None:
-        num_blocks = max(max(self._num_blocks_train), max(self._num_blocks_test))
+        num_blocks = max(
+            max(self._config.num_blocks_train), max(self._config.num_blocks_test)
+        )
         for i in range(num_blocks):
             block = Object(f"block{i}", self._block_type)
             self._blocks.append(block)
@@ -171,14 +174,16 @@ class PyBulletBlocksEnv(PyBulletEnv):
         bodies["table_id"] = table_id
 
         # Optional debug lines
-        cfg = config or PyBulletConfig()
+        cfg = config or BlocksConfig()
         if cfg.draw_debug and using_gui:  # pragma: no cover
             cls._draw_table_workspace_debug_lines(physics_client_id)
 
         # Create the maximum number of blocks
-        num_blocks = max(max(cls._num_blocks_train), max(cls._num_blocks_test))
+        num_blocks_train = getattr(cfg, "num_blocks_train", (3, 4))
+        num_blocks_test = getattr(cfg, "num_blocks_test", (5, 6))
+        num_blocks = max(max(num_blocks_train), max(num_blocks_test))
         block_ids = []
-        block_size = cls._block_size
+        block_size = getattr(cfg, "block_size", 0.045)
         for i in range(num_blocks):
             color = cls._obj_colors[i % len(cls._obj_colors)]
             half_extents = (block_size / 2.0, block_size / 2.0, block_size / 2.0)
@@ -206,8 +211,7 @@ class PyBulletBlocksEnv(PyBulletEnv):
 
     def _reset_custom_env_state(self, state: State) -> None:
         """After the parent ``_reset_state()`` has reset the robot, set the
-        block positions/colours and handle constraints for any 'held'
-        block."""
+        block positions/colours and handle constraints for any 'held' block."""
         block_objs = state.get_objects(self._block_type)
         self._block_id_to_block.clear()
 
@@ -244,7 +248,7 @@ class PyBulletBlocksEnv(PyBulletEnv):
             self._force_grasp_object(held_block)
 
         # Teleport any leftover blocks out of view
-        block_size = self._block_size
+        block_size = self._config.block_size
         oov_x, oov_y = self._out_of_view_xy
         for i in range(len(block_objs), len(self._block_ids)):
             block_id = self._block_ids[i]
@@ -256,8 +260,7 @@ class PyBulletBlocksEnv(PyBulletEnv):
             )
 
     def _extract_feature(self, obj: Object, feature: str) -> float:
-        """Called by the parent class when constructing the
-        ``PyBulletState``.
+        """Called by the parent class when constructing the ``PyBulletState``.
 
         The block features use non-standard names (``pose_x`` instead of
         ``x``, ``held`` instead of ``is_held``, etc.) so they all flow
@@ -313,7 +316,7 @@ class PyBulletBlocksEnv(PyBulletEnv):
         self._prev_held_obj_id = self._held_obj_id
         next_state = super().step(action, render_obs=render_obs)
 
-        if self._high_towers_are_unstable:
+        if self._config.high_towers_are_unstable:
             self._apply_force_to_high_towers(next_state)
             next_state = self._get_state()
             self._current_observation = next_state
@@ -325,8 +328,11 @@ class PyBulletBlocksEnv(PyBulletEnv):
     # ==================================================================
 
     def _force_grasp_object(self, block: Object) -> None:
-        """Manually create a fixed constraint for a block that is marked
-        'held' in the State.  Called from ``_reset_custom_env_state()``."""
+        """Manually create a fixed constraint for a block that is marked 'held'
+        in the State.
+
+        Called from ``_reset_custom_env_state()``.
+        """
         block_id = None
         for bid, block_obj in self._block_id_to_block.items():
             if block_obj == block:
@@ -384,13 +390,13 @@ class PyBulletBlocksEnv(PyBulletEnv):
         y2 = state.get(block2, "pose_y")
         z2 = state.get(block2, "pose_z")
         return np.allclose(
-            [x1, y1, z1], [x2, y2, z2 + self._block_size], atol=self.on_tol
+            [x1, y1, z1], [x2, y2, z2 + self._config.block_size], atol=self.on_tol
         )
 
     def _OnTable_holds(self, state: State, objects: Sequence[Object]) -> bool:
         (block,) = objects
         z = state.get(block, "pose_z")
-        desired_z = self.table_height + self._block_size * 0.5
+        desired_z = self.table_height + self._config.block_size * 0.5
         return (state.get(block, "held") < self.held_tol) and (
             desired_z - self.on_tol < z < desired_z + self.on_tol
         )
@@ -496,12 +502,12 @@ class PyBulletBlocksEnv(PyBulletEnv):
         self, x: float, y: float, existing_xys: Set[Tuple[float, float]]
     ) -> bool:
         if all(
-            abs(x - other_x) > self.collision_padding * self._block_size
+            abs(x - other_x) > self.collision_padding * self._config.block_size
             for other_x, _ in existing_xys
         ):
             return True
         if all(
-            abs(y - other_y) > self.collision_padding * self._block_size
+            abs(y - other_y) > self.collision_padding * self._config.block_size
             for _, other_y in existing_xys
         ):
             return True
@@ -520,7 +526,7 @@ class PyBulletBlocksEnv(PyBulletEnv):
         x, y, z, fingers = action.arr
         if fingers < 0.5:
             return self._transition_pick(state, x, y, z)
-        if z < self.table_height + self._block_size:
+        if z < self.table_height + self._config.block_size:
             return self._transition_putontable(state, x, y, z)
         return self._transition_stack(state, x, y, z)
 
@@ -585,7 +591,7 @@ class PyBulletBlocksEnv(PyBulletEnv):
         cur_z = state.get(other_block, "pose_z")
         next_state.set(block, "pose_x", cur_x)
         next_state.set(block, "pose_y", cur_y)
-        next_state.set(block, "pose_z", cur_z + self._block_size)
+        next_state.set(block, "pose_z", cur_z + self._config.block_size)
         next_state.set(block, "held", 0.0)
         next_state.set(self._robot, "fingers", self.open_fingers)
         return next_state
@@ -597,14 +603,14 @@ class PyBulletBlocksEnv(PyBulletEnv):
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(
             num_tasks=self._config.num_train_tasks,
-            possible_num_blocks=self._num_blocks_train,
+            possible_num_blocks=self._config.num_blocks_train,
             rng=self._train_rng,
         )
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._get_tasks(
             num_tasks=self._config.num_test_tasks,
-            possible_num_blocks=self._num_blocks_test,
+            possible_num_blocks=self._config.num_blocks_test,
             rng=self._test_rng,
         )
 
@@ -651,7 +657,7 @@ class PyBulletBlocksEnv(PyBulletEnv):
         for block, pile_idx in block_to_pile_idx.items():
             pile_i, pile_j = pile_idx
             x, y = pile_to_xy[pile_i]
-            z = self.table_height + self._block_size * (0.5 + pile_j)
+            z = self.table_height + self._config.block_size * (0.5 + pile_j)
             cr, cg, cb = rng.uniform(size=3)
             # [pose_x, pose_y, pose_z, held, color_r, color_g, color_b]
             data[block] = np.array([x, y, z, 0.0, cr, cg, cb])
@@ -664,7 +670,7 @@ class PyBulletBlocksEnv(PyBulletEnv):
     def _sample_goal_from_piles(
         self, num_blocks: int, piles: List[List[Object]], rng: np.random.Generator
     ) -> Set[GroundAtom]:
-        if self._holding_goals:
+        if self._config.holding_goals:
             pile_idx = rng.choice(len(piles))
             top_block = piles[pile_idx][-1]
             return {GroundAtom(self._Holding, [top_block])}

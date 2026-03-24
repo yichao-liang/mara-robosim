@@ -14,7 +14,7 @@ import numpy as np
 import pybullet as p
 
 from mara_robosim import utils
-from mara_robosim.config import PyBulletConfig
+from mara_robosim.config import CoverConfig, PyBulletConfig
 from mara_robosim.envs.base_env import PyBulletEnv, create_pybullet_block
 from mara_robosim.pybullet_helpers.geometry import Pose3D, Quaternion
 from mara_robosim.pybullet_helpers.objects import update_object
@@ -47,13 +47,7 @@ class PyBulletCoverEnv(PyBulletEnv):
     workspace_x: ClassVar[float] = 1.35
     workspace_z: ClassVar[float] = 0.65
 
-    # Cover-specific defaults (were CFG.cover_* in predicators)
-    cover_num_blocks: ClassVar[int] = 2
-    cover_num_targets: ClassVar[int] = 2
-    cover_block_widths: ClassVar[List[float]] = [0.1, 0.07]
-    cover_target_widths: ClassVar[List[float]] = [0.05, 0.03]
-    cover_initial_holding_prob: ClassVar[float] = 0.75
-    cover_blocks_change_color_when_cover: ClassVar[bool] = False
+    # Cover-specific defaults now live in CoverConfig (self._config)
 
     # ------------------------------------------------------------------
     # PyBullet-specific class variables
@@ -102,8 +96,10 @@ class PyBulletCoverEnv(PyBulletEnv):
     # ------------------------------------------------------------------
 
     def __init__(
-        self, config: Optional[PyBulletConfig] = None, use_gui: bool = True
+        self, config: Optional[CoverConfig] = None, use_gui: bool = True
     ) -> None:
+        config = CoverConfig._upgrade(config or CoverConfig())
+
         # Predicates (must be set before super().__init__ because
         # task generation may need them).
         self._IsBlock = Predicate("IsBlock", [self._block_type], self._IsBlock_holds)
@@ -120,7 +116,7 @@ class PyBulletCoverEnv(PyBulletEnv):
         self._robot = Object("robby", self._robot_type)
         self._blocks: List[Object] = []
         self._targets: List[Object] = []
-        self._create_blocks_and_targets()
+        self._create_blocks_and_targets(config)
 
         # Call PyBulletEnv.__init__ (sets up physics, robot, etc.)
         super().__init__(config, use_gui)
@@ -190,11 +186,15 @@ class PyBulletCoverEnv(PyBulletEnv):
         )
 
         # Create blocks
-        max_width = max(max(cls.cover_block_widths), max(cls.cover_target_widths))
+        cover_block_widths = getattr(config, "cover_block_widths", (0.1, 0.07))
+        cover_target_widths = getattr(config, "cover_target_widths", (0.05, 0.03))
+        cover_num_blocks = getattr(config, "cover_num_blocks", 2)
+        cover_num_targets = getattr(config, "cover_num_targets", 2)
+        max_width = max(max(cover_block_widths), max(cover_target_widths))
         block_ids = []
-        for i in range(cls.cover_num_blocks):
+        for i in range(cover_num_blocks):
             color = cls._obj_colors[i % len(cls._obj_colors)]
-            width = cls.cover_block_widths[i] / max_width * cls._max_obj_width
+            width = cover_block_widths[i] / max_width * cls._max_obj_width
             half_extents = (cls._obj_len_hgt / 2.0, width / 2.0, cls._obj_len_hgt / 2.0)
             block_id = create_pybullet_block(
                 color=color,
@@ -208,10 +208,10 @@ class PyBulletCoverEnv(PyBulletEnv):
 
         # Create targets
         target_ids = []
-        for i in range(cls.cover_num_targets):
+        for i in range(cover_num_targets):
             color = cls._obj_colors[i % len(cls._obj_colors)]
             color = (color[0], color[1], color[2], 0.5)  # semi-transparent
-            width = cls.cover_target_widths[i] / max_width * cls._max_obj_width
+            width = cover_target_widths[i] / max_width * cls._max_obj_width
             half_extents = (cls._obj_len_hgt * 2, width / 2.0, cls._target_height / 2.0)
             target_id = create_pybullet_block(
                 color=color,
@@ -254,9 +254,11 @@ class PyBulletCoverEnv(PyBulletEnv):
     # ------------------------------------------------------------------
 
     def _extract_robot_state(self, state: State) -> np.ndarray:
-        """Convert from our domain's features (hand, pose_x, pose_z) into
-        the [x, y, z, qx, qy, qz, qw, fingers] array expected by the
-        PyBullet robot."""
+        """Convert from our domain's features (hand, pose_x, pose_z) into the.
+
+        [x, y, z, qx, qy, qz, qw, fingers] array expected by the
+        PyBullet robot.
+        """
         # 1) Determine fingers (closed if any block is being held)
         is_holding_something = False
         for obj in state.get_objects(self._block_type):
@@ -285,7 +287,9 @@ class PyBulletCoverEnv(PyBulletEnv):
     def _extract_feature(self, obj: Object, feature: str) -> float:
         """Domain-specific feature extraction for blocks, targets, and the
         robot."""
-        max_width = max(max(self.cover_block_widths), max(self.cover_target_widths))
+        max_width = max(
+            max(self._config.cover_block_widths), max(self._config.cover_target_widths)
+        )
 
         # Block features
         if obj.type == self._block_type:
@@ -351,7 +355,9 @@ class PyBulletCoverEnv(PyBulletEnv):
         Because our block objects do not have standard 'x','y','z'
         features, we do the custom placement here.
         """
-        max_width = max(max(self.cover_block_widths), max(self.cover_target_widths))
+        max_width = max(
+            max(self._config.cover_block_widths), max(self._config.cover_target_widths)
+        )
 
         # 1) Reset blocks
         block_objs = state.get_objects(self._block_type)
@@ -447,7 +453,7 @@ class PyBulletCoverEnv(PyBulletEnv):
 
         next_state = super().step(action, render_obs=render_obs)
 
-        if self.cover_blocks_change_color_when_cover:
+        if self._config.cover_blocks_change_color_when_cover:
             self._change_block_color_when_cover(next_state)
         return next_state
 
@@ -487,11 +493,11 @@ class PyBulletCoverEnv(PyBulletEnv):
     # Domain logic (merged from CoverEnv)
     # ------------------------------------------------------------------
 
-    def _create_blocks_and_targets(self) -> None:
+    def _create_blocks_and_targets(self, config: CoverConfig) -> None:
         """Create block and target Object instances."""
-        for i in range(self.cover_num_blocks):
+        for i in range(config.cover_num_blocks):
             self._blocks.append(Object(f"block{i}", self._block_type))
-        for i in range(self.cover_num_targets):
+        for i in range(config.cover_num_targets):
             self._targets.append(Object(f"target{i}", self._target_type))
 
     def _get_hand_regions(self, state: State) -> List[Tuple[float, float]]:
@@ -523,8 +529,8 @@ class PyBulletCoverEnv(PyBulletEnv):
         larger_gap: bool = False,
         excluded_object: Optional[Object] = None,
     ) -> bool:
-        """Check whether placing an object at (pose, width) would intersect
-        any existing object in data."""
+        """Check whether placing an object at (pose, width) would intersect any
+        existing object in data."""
         mult = 1.5 if larger_gap else 0.5
         for other in data:
             if block_only and other.type != self._block_type:
@@ -617,8 +623,8 @@ class PyBulletCoverEnv(PyBulletEnv):
         """Create a random initial state for the cover domain."""
         data: Dict[Object, Array] = {}
 
-        assert len(self.cover_block_widths) == len(blocks)
-        for block, width in zip(blocks, self.cover_block_widths):
+        assert len(self._config.cover_block_widths) == len(blocks)
+        for block, width in zip(blocks, self._config.cover_block_widths):
             while True:
                 pose = rng.uniform(width / 2, 1.0 - width / 2)
                 if not self._any_intersection(pose, width, data):
@@ -626,8 +632,8 @@ class PyBulletCoverEnv(PyBulletEnv):
             # [is_block, is_target, width, pose, grasp]
             data[block] = np.array([1.0, 0.0, width, pose, -1.0])
 
-        assert len(self.cover_target_widths) == len(targets)
-        for target, width in zip(targets, self.cover_target_widths):
+        assert len(self._config.cover_target_widths) == len(targets)
+        for target, width in zip(targets, self._config.cover_target_widths):
             while True:
                 pose = rng.uniform(width / 2, 1.0 - width / 2)
                 if not self._any_intersection(pose, width, data, larger_gap=True):
@@ -641,7 +647,7 @@ class PyBulletCoverEnv(PyBulletEnv):
         state = State(data)
 
         # Allow some chance of holding a block in the initial state.
-        if rng.uniform() < self.cover_initial_holding_prob:
+        if rng.uniform() < self._config.cover_initial_holding_prob:
             block = blocks[rng.choice(len(blocks))]
             block_pose = state.get(block, "pose")
             pick_pose = block_pose

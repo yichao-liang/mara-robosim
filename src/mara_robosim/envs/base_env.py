@@ -274,9 +274,9 @@ class PyBulletEnv(abc.ABC):
     def _store_pybullet_bodies(self, pybullet_bodies: Dict[str, Any]) -> None:
         """Store any bodies created in ``cls.initialize_pybullet()``.
 
-        This is separate from the initialisation because the initialisation
-        is a class method (which is needed for options).  Subclasses should
-        decide what bodies to keep.
+        This is separate from the initialisation because the
+        initialisation is a class method (which is needed for options).
+        Subclasses should decide what bodies to keep.
         """
         raise NotImplementedError("Override me!")
 
@@ -395,8 +395,8 @@ class PyBulletEnv(abc.ABC):
     ) -> SingleArmPyBulletRobot:
         """Create and return the robot for this environment.
 
-        Uses ``config`` (or a default ``PyBulletConfig()``) for the robot
-        name and end-effector orientation.
+        Uses ``config`` (or a default ``PyBulletConfig()``) for the
+        robot name and end-effector orientation.
         """
         if config is None:
             config = PyBulletConfig()

@@ -2,7 +2,7 @@
 
 ![CI](https://github.com/yichao-liang/mara-robosim/actions/workflows/ci.yml/badge.svg)
 
-A collection of PyBullet robotic manipulation environments for world model learning and causal discovery research. Each environment features a Fetch or Panda robot interacting with objects on a tabletop, with rich contact physics and task-oriented goals.
+A collection of PyBullet robotic manipulation environments for world model learning and causal discovery research. Each environment features a Fetch or Panda robot interacting with objects on a tabletop.
 
 ## Installation
 
@@ -40,6 +40,8 @@ obs, reward, terminated, truncated, info = env.step(env.action_space.sample())
 | `mara/Laser-v0` | ![](docs/assets/gifs/pybullet_laser.gif) | Align lasers and mirrors to hit targets |
 | `mara/MagicBin-v0` | ![](docs/assets/gifs/pybullet_magic_bin.gif) | Sort objects into magic bins that transform them |
 | `mara/Switch-v0` | ![](docs/assets/gifs/pybullet_switch.gif) | Toggle switches to open doors and move objects |
+
+For a more thorough walkthrough (discovery, stepping, rendering, rollout GIF), see [`scripts/test_getting_started.py`](scripts/test_getting_started.py).
 
 ## Standalone API
 

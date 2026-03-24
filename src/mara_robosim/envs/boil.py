@@ -19,7 +19,7 @@ import numpy as np
 import pybullet as p
 
 from mara_robosim import utils
-from mara_robosim.config import PyBulletConfig
+from mara_robosim.config import BoilConfig, PyBulletConfig
 from mara_robosim.envs.base_env import PyBulletEnv, create_pybullet_block
 from mara_robosim.pybullet_helpers.geometry import Pose3D, Quaternion
 from mara_robosim.pybullet_helpers.objects import create_object, update_object
@@ -42,9 +42,12 @@ from mara_robosim.structs import (
 
 @dataclass(frozen=True, order=False, repr=False)
 class DerivedPredicate(Predicate):
-    """A predicate whose classifier operates on a set of ground atoms
-    rather than a raw state.  This is a lightweight local definition
-    mirroring the predicators concept."""
+    """A predicate whose classifier operates on a set of ground atoms rather
+    than a raw state.
+
+    This is a lightweight local definition mirroring the predicators
+    concept.
+    """
 
     name: str
     types: Sequence[Type]
@@ -146,30 +149,15 @@ class PyBulletBoilEnv(PyBulletEnv):
     jug_sample_y_max: ClassVar[float] = y_ub - jug_sample_y_margin_top
 
     # -------------------------------------------------------------------------
-    # Domain-specific config (formerly from CFG.boil_*)
+    # Domain-specific config (read from self._config: BoilConfig)
     # -------------------------------------------------------------------------
-    boil_num_jugs_train: ClassVar[List[int]] = [1]
-    boil_num_jugs_test: ClassVar[List[int]] = [1, 2]
-    boil_num_burner_train: ClassVar[List[int]] = [1]
-    boil_num_burner_test: ClassVar[List[int]] = [1]
-    boil_water_fill_speed: ClassVar[float] = 0.002
-    boil_use_skill_factories: ClassVar[bool] = True
-    boil_use_constant_delay: ClassVar[bool] = False
-    boil_use_normal_delay: ClassVar[bool] = True
-    boil_use_cmp_delay: ClassVar[bool] = False
-    boil_goal: ClassVar[str] = "simple"
-    boil_goal_simple_human_happy: ClassVar[bool] = False
-    boil_use_derived_predicates: ClassVar[bool] = True
-    boil_require_jug_full_to_heatup: ClassVar[bool] = False
-    boil_goal_require_burner_off: ClassVar[bool] = True
-    boil_add_jug_reached_capacity_predicate: ClassVar[bool] = False
 
     # Speeds / rates
     water_height_to_level_ratio: ClassVar[float] = 10
 
     @property
     def water_fill_speed(self) -> float:
-        return self.boil_water_fill_speed * self.water_height_to_level_ratio
+        return self._config.boil_water_fill_speed * self.water_height_to_level_ratio
 
     water_filled_height: ClassVar[float] = 0.08 * water_height_to_level_ratio
     max_jug_water_capacity: ClassVar[float] = 0.13 * water_height_to_level_ratio
@@ -230,12 +218,17 @@ class PyBulletBoilEnv(PyBulletEnv):
     def __init__(
         self, config: Optional[PyBulletConfig] = None, use_gui: bool = True
     ) -> None:
+        config = BoilConfig._upgrade(config or BoilConfig())
+        self._config = config  # set early; base __init__ will also set it
+
         # Create the robot as an Object
         self._robot = Object("robot", self._robot_type)
 
         # Create jugs
         self._jugs: List[Object] = []
-        max_jugs = max(max(self.boil_num_jugs_train), max(self.boil_num_jugs_test))
+        max_jugs = max(
+            max(self._config.boil_num_jugs_train), max(self._config.boil_num_jugs_test)
+        )
         for i in range(max_jugs):
             jug_obj = Object(f"jug{i}", self._jug_type)
             self._jugs.append(jug_obj)
@@ -245,7 +238,8 @@ class PyBulletBoilEnv(PyBulletEnv):
         self._burners: List[Object] = []
         self._burner_switches: List[Object] = []
         max_burners = max(
-            max(self.boil_num_burner_train), max(self.boil_num_burner_test)
+            max(self._config.boil_num_burner_train),
+            max(self._config.boil_num_burner_test),
         )
         for i in range(max_burners):
             burn_obj = Object(f"burner{i}", self._burner_type)
@@ -379,14 +373,14 @@ class PyBulletBoilEnv(PyBulletEnv):
             self._NoJugAtBurner,
             self._NoWaterSpilled,
         }
-        if self.boil_add_jug_reached_capacity_predicate:
+        if self._config.boil_add_jug_reached_capacity_predicate:
             predicates.add(self._JugAtCapacity)
-        if self.boil_goal == "human_happy":
+        if self._config.boil_goal == "human_happy":
             predicates.add(self._HumanHappy)
-        elif self.boil_goal == "task_completed":
+        elif self._config.boil_goal == "task_completed":
             predicates.add(self._TaskCompleted)
-        if self.boil_use_derived_predicates:
-            if self.boil_add_jug_reached_capacity_predicate:
+        if self._config.boil_use_derived_predicates:
+            if self._config.boil_add_jug_reached_capacity_predicate:
                 predicates.add(self._NoJugAtFaucetOrJugAtFaucetAndReachedCapacity)
             else:
                 predicates.add(self._NoJugAtFaucetOrJugAtFaucetAndFilled)
@@ -407,11 +401,11 @@ class PyBulletBoilEnv(PyBulletEnv):
     @property
     def goal_predicates(self) -> Set[Predicate]:
         """Which predicates might appear in goals."""
-        if self.boil_goal == "human_happy":
+        if self._config.boil_goal == "human_happy":
             return {self._HumanHappy}
-        elif self.boil_goal == "task_completed":
+        elif self._config.boil_goal == "task_completed":
             return {self._TaskCompleted}
-        elif self.boil_goal == "simple":
+        elif self._config.boil_goal == "simple":
             return {
                 self._WaterBoiled,
                 self._JugFilled,
@@ -419,7 +413,7 @@ class PyBulletBoilEnv(PyBulletEnv):
                 self._BurnerOff,
             }
         else:
-            raise ValueError(f"Unknown goal type {self.boil_goal}.")
+            raise ValueError(f"Unknown goal type {self._config.boil_goal}.")
 
     # -------------------------------------------------------------------------
     # PyBullet Initialization
@@ -459,7 +453,10 @@ class PyBulletBoilEnv(PyBulletEnv):
 
         # 2) Create jugs
         jug_ids = []
-        max_jugs = max(max(cls.boil_num_jugs_train), max(cls.boil_num_jugs_test))
+        max_jugs = max(
+            max(getattr(config, "boil_num_jugs_train", (1,))),
+            max(getattr(config, "boil_num_jugs_test", (1, 2))),
+        )
         all_white_jugs = False
         for _ in range(max_jugs):
             jug_id = create_object(
@@ -477,7 +474,10 @@ class PyBulletBoilEnv(PyBulletEnv):
 
         # 3) Create burners
         burner_ids = []
-        max_burners = max(max(cls.boil_num_burner_train), max(cls.boil_num_burner_test))
+        max_burners = max(
+            max(getattr(config, "boil_num_burner_train", (1,))),
+            max(getattr(config, "boil_num_burner_test", (1,))),
+        )
         for _ in range(max_burners):
             burner_id = create_pybullet_block(
                 color=cls.burner_off_color,
@@ -838,7 +838,7 @@ class PyBulletBoilEnv(PyBulletEnv):
                 dist = np.hypot(bx - jug_x, by - jug_y)
                 if dist < self.burner_align_threshold:
                     old_heat = state.get(jug_obj, "heat_level")
-                    if self.boil_require_jug_full_to_heatup:
+                    if self._config.boil_require_jug_full_to_heatup:
                         required_vol = self.water_filled_height
                     else:
                         required_vol = 0.0
@@ -901,7 +901,7 @@ class PyBulletBoilEnv(PyBulletEnv):
                 no_water_spilled = self._NoWaterSpilled_holds(state, [])
 
                 conditions = [jug_filled, water_boiled, no_water_spilled]
-                if self.boil_goal_require_burner_off:
+                if self._config.boil_goal_require_burner_off:
                     burner_off = True
                     if burner is not None:
                         burner_off = not self._BurnerOn_holds(state, [burner])
@@ -926,7 +926,8 @@ class PyBulletBoilEnv(PyBulletEnv):
         self._faucet.prev_on = float(faucet_on)
 
     def _create_spilled_water_block(self, spilled_size: float, state: State) -> int:
-        """Create a very short block on the table to represent spilled water."""
+        """Create a very short block on the table to represent spilled
+        water."""
         faucet_x = state.get(self._faucet, "x")
         faucet_y = state.get(self._faucet, "y")
         faucet_rot = state.get(self._faucet, "rot")
@@ -1160,11 +1161,11 @@ class PyBulletBoilEnv(PyBulletEnv):
         burner_off = all(
             not self._BurnerOn_holds(state, [burner]) for burner in burners_in_state
         )
-        if self.boil_goal_simple_human_happy:
+        if self._config.boil_goal_simple_human_happy:
             return all_filled
         else:
             conditions = [all_filled, no_spill, all_boiled]
-            if self.boil_goal_require_burner_off:
+            if self._config.boil_goal_require_burner_off:
                 conditions.append(burner_off)
             return all(conditions)
 
@@ -1243,16 +1244,16 @@ class PyBulletBoilEnv(PyBulletEnv):
     def _generate_train_tasks(self) -> List[EnvironmentTask]:
         return self._make_tasks(
             num_tasks=self._config.num_train_tasks,
-            possible_num_jugs=self.boil_num_jugs_train,
-            possible_num_burners=self.boil_num_burner_train,
+            possible_num_jugs=self._config.boil_num_jugs_train,
+            possible_num_burners=self._config.boil_num_burner_train,
             rng=self._train_rng,
         )
 
     def _generate_test_tasks(self) -> List[EnvironmentTask]:
         return self._make_tasks(
             num_tasks=self._config.num_test_tasks,
-            possible_num_jugs=self.boil_num_jugs_test,
-            possible_num_burners=self.boil_num_burner_test,
+            possible_num_jugs=self._config.boil_num_jugs_test,
+            possible_num_burners=self._config.boil_num_burner_test,
             rng=self._test_rng,
         )
 
@@ -1263,7 +1264,10 @@ class PyBulletBoilEnv(PyBulletEnv):
         possible_num_burners: List[int],
         rng: np.random.Generator,
     ) -> List[EnvironmentTask]:
-        """Randomly place jugs, burners, faucet, etc. for each task."""
+        """Randomly place jugs, burners, faucet, etc.
+
+        for each task.
+        """
         tasks = []
         for _ in range(num_tasks):
             # Sample the number of jugs and burners for this task
@@ -1358,7 +1362,7 @@ class PyBulletBoilEnv(PyBulletEnv):
             # Example goal: Water boiled, no water spilled, etc.
             goal_atoms = set()
 
-            if self.boil_goal == "human_happy":
+            if self._config.boil_goal == "human_happy":
                 for i in range(num_jugs):
                     human_obj = self._humans[i]
                     jug_obj = self._jugs[i]
@@ -1371,9 +1375,9 @@ class PyBulletBoilEnv(PyBulletEnv):
                     goal_atoms.add(
                         GroundAtom(self._HumanHappy, [human_obj, jug_obj, burner_obj])
                     )
-            elif self.boil_goal == "task_completed":
+            elif self._config.boil_goal == "task_completed":
                 goal_atoms.add(GroundAtom(self._TaskCompleted, []))
-            elif self.boil_goal == "simple":
+            elif self._config.boil_goal == "simple":
                 goal_atoms.add(GroundAtom(self._NoWaterSpilled, []))
                 for i in range(num_jugs):
                     j_obj = self._jugs[i]
@@ -1383,7 +1387,7 @@ class PyBulletBoilEnv(PyBulletEnv):
                     b_obj = self._burners[i]
                     goal_atoms.add(GroundAtom(self._BurnerOff, [b_obj]))
             else:
-                raise ValueError(f"Unknown goal type {self.boil_goal}.")
+                raise ValueError(f"Unknown goal type {self._config.boil_goal}.")
 
             tasks.append(EnvironmentTask(init_state, goal_atoms))
 

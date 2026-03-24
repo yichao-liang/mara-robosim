@@ -1,7 +1,8 @@
 """Data structures for mara-robosim.
 
-Extracted from predicators.structs with all predicators-specific dependencies
-removed. Only numpy and PIL are required as external dependencies.
+Extracted from predicators.structs with all predicators-specific
+dependencies removed. Only numpy and PIL are required as external
+dependencies.
 """
 
 from __future__ import annotations
@@ -698,8 +699,9 @@ class GroundAtom(_Atom):
         """Get the negated atom of this GroundAtom.
 
         Always uses ``Predicate.get_negation()`` to produce the negated
-        predicate. If the predicate is already a negation (name starts with
-        'NOT-'), the double negation is stripped to recover the original.
+        predicate. If the predicate is already a negation (name starts
+        with 'NOT-'), the double negation is stripped to recover the
+        original.
         """
         if self.predicate.name.startswith("NOT-"):
             # Already negated -- try to invert by stripping the NOT- prefix.

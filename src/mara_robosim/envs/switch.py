@@ -1,8 +1,8 @@
 """A PyBullet environment with two switches and one light bulb.
 
-The power switch controls whether the light is on/off.
-The color switch cycles through colors (red, green, blue) each time it's toggled.
-The goal is to have the light display a specific target color.
+The power switch controls whether the light is on/off. The color switch
+cycles through colors (red, green, blue) each time it's toggled. The
+goal is to have the light display a specific target color.
 """
 
 from typing import Any, ClassVar, Dict, List, Optional, Sequence, Set, Tuple

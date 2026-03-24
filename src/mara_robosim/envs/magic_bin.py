@@ -1,8 +1,8 @@
 """A PyBullet environment with blocks, a magic trash bin, and a switch.
 
-When the switch is ON and a block is inside the bin, the block is teleported
-to an out-of-view position (vanished). The goal is to make certain blocks
-vanish (not be on the table).
+When the switch is ON and a block is inside the bin, the block is
+teleported to an out-of-view position (vanished). The goal is to make
+certain blocks vanish (not be on the table).
 """
 
 from typing import Any, ClassVar, Dict, List, Optional, Sequence, Set, Tuple

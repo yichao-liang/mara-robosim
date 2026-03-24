@@ -431,8 +431,10 @@ class TestJointInfo:
         assert not ji.violates_limit(999.0)
 
     def test_violates_limit_with_tolerance(self):
-        """The tolerance widens the violation zone: a value is considered
-        violating if ``lower > value - tol`` or ``value + tol > upper``."""
+        """The tolerance widens the violation zone: a value is considered.
+
+        violating if ``lower > value - tol`` or ``value + tol > upper``.
+        """
         ji = self._make_joint_info(lower_limit=0.0, upper_limit=1.0)
         # value=0.5 is well inside [0, 1] even with tol=0.1
         assert not ji.violates_limit(0.5, tol=0.1)

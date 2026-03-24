@@ -9,7 +9,7 @@ from typing import Any, ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 import numpy as np
 import pybullet as p
 
-from mara_robosim.config import PyBulletConfig
+from mara_robosim.config import DominoConfig, PyBulletConfig
 from mara_robosim.envs.base_env import PyBulletEnv
 from mara_robosim.envs.domino.components.ball_component import BallComponent
 from mara_robosim.envs.domino.components.base_component import DominoEnvComponent
@@ -99,42 +99,22 @@ class PyBulletDominoComposedEnv(PyBulletEnv):
     _robot_type = Type("robot", ["x", "y", "z", "fingers", "tilt", "wrist"])
     _out_of_view_xy: ClassVar[Sequence[float]] = [10.0, 10.0]
 
-    # =========================================================================
-    # DOMAIN-SPECIFIC DEFAULTS (previously from CFG.domino_*)
-    # =========================================================================
-    domino_debug_layout: ClassVar[bool] = False
-    domino_some_dominoes_are_connected: ClassVar[bool] = False
-    domino_initialize_at_finished_state: ClassVar[bool] = True
-    domino_use_domino_blocks_as_target: ClassVar[bool] = True
-    domino_use_grid: ClassVar[bool] = False
-    domino_include_connected_predicate: ClassVar[bool] = False
-    domino_has_glued_dominos: ClassVar[bool] = True
-    domino_prune_actions: ClassVar[bool] = False
-    domino_only_straight_sequence_in_training: ClassVar[bool] = True
-    domino_train_num_dominos: ClassVar[List[int]] = [2]
-    domino_test_num_dominos: ClassVar[List[int]] = [3]
-    domino_train_num_targets: ClassVar[List[int]] = [1]
-    domino_test_num_targets: ClassVar[List[int]] = [1, 2]
-    domino_train_num_pivots: ClassVar[List[int]] = [0]
-    domino_test_num_pivots: ClassVar[List[int]] = [0]
-    domino_oracle_knows_glued_dominos: ClassVar[bool] = False
-    domino_use_continuous_place: ClassVar[bool] = False
-    domino_restricted_push: ClassVar[bool] = False
-    domino_use_skill_factories: ClassVar[bool] = True
+    # Domain-specific defaults now live in DominoConfig (self._config)
 
     def __init__(
         self,
         components: List[DominoEnvComponent],
-        config: Optional[PyBulletConfig] = None,
+        config: Optional[DominoConfig] = None,
         use_gui: bool = True,
     ) -> None:
         """Initialize the composed domino environment.
 
         Args:
             components: List of components to include in the environment.
-            config: Optional PyBulletConfig for robot/sim settings.
+            config: Optional DominoConfig for robot/sim and domain settings.
             use_gui: Whether to use PyBullet GUI.
         """
+        config = DominoConfig._upgrade(config or DominoConfig())
         self._components = components
 
         # Create robot object
@@ -350,9 +330,9 @@ class PyBulletDominoComposedEnv(PyBulletEnv):
         """Generate training tasks."""
         return self._make_tasks(
             num_tasks=self._config.num_train_tasks,
-            possible_num_dominos=self.domino_train_num_dominos,
-            possible_num_targets=self.domino_train_num_targets,
-            possible_num_pivots=self.domino_train_num_pivots,
+            possible_num_dominos=self._config.domino_train_num_dominos,
+            possible_num_targets=self._config.domino_train_num_targets,
+            possible_num_pivots=self._config.domino_train_num_pivots,
             rng=self._train_rng,
         )
 
@@ -360,9 +340,9 @@ class PyBulletDominoComposedEnv(PyBulletEnv):
         """Generate test tasks."""
         return self._make_tasks(
             num_tasks=self._config.num_test_tasks,
-            possible_num_dominos=self.domino_test_num_dominos,
-            possible_num_targets=self.domino_test_num_targets,
-            possible_num_pivots=self.domino_test_num_pivots,
+            possible_num_dominos=self._config.domino_test_num_dominos,
+            possible_num_targets=self._config.domino_test_num_targets,
+            possible_num_pivots=self._config.domino_test_num_pivots,
             rng=self._test_rng,
         )
 
@@ -400,9 +380,9 @@ class PyBulletDominoComposedEnv(PyBulletEnv):
             robot=self._robot,
             robot_init_state=robot_init_state,
             additional_components=additional_components,
-            use_domino_blocks_as_target=self.domino_use_domino_blocks_as_target,
-            has_glued_dominos=self.domino_has_glued_dominos,
-            initialize_at_finished_state=self.domino_initialize_at_finished_state,
+            use_domino_blocks_as_target=self._config.domino_use_domino_blocks_as_target,
+            has_glued_dominos=self._config.domino_has_glued_dominos,
+            initialize_at_finished_state=self._config.domino_initialize_at_finished_state,
         )
 
         # If ball component is present, place dominoes in upper half
@@ -431,8 +411,9 @@ class PyBulletDominoEnvNew(PyBulletDominoComposedEnv):
     """Backward-compatible domino environment class."""
 
     def __init__(
-        self, config: Optional[PyBulletConfig] = None, use_gui: bool = True
+        self, config: Optional[DominoConfig] = None, use_gui: bool = True
     ) -> None:
+        config = DominoConfig._upgrade(config or DominoConfig())
         workspace_bounds = {
             "x_lb": self.x_lb,
             "x_ub": self.x_ub,
@@ -443,13 +424,13 @@ class PyBulletDominoEnvNew(PyBulletDominoComposedEnv):
         }
 
         max_dominos = max(
-            max(self.domino_train_num_dominos), max(self.domino_test_num_dominos)
+            max(config.domino_train_num_dominos), max(config.domino_test_num_dominos)
         )
         max_targets = max(
-            max(self.domino_train_num_targets), max(self.domino_test_num_targets)
+            max(config.domino_train_num_targets), max(config.domino_test_num_targets)
         )
         max_pivots = max(
-            max(self.domino_train_num_pivots), max(self.domino_test_num_pivots)
+            max(config.domino_train_num_pivots), max(config.domino_test_num_pivots)
         )
 
         domino_comp = DominoComponent(
@@ -457,8 +438,8 @@ class PyBulletDominoEnvNew(PyBulletDominoComposedEnv):
             num_targets_max=max_targets,
             num_pivots_max=max_pivots,
             workspace_bounds=workspace_bounds,
-            use_domino_blocks_as_target=self.domino_use_domino_blocks_as_target,
-            has_glued_dominos=self.domino_has_glued_dominos,
+            use_domino_blocks_as_target=config.domino_use_domino_blocks_as_target,
+            has_glued_dominos=config.domino_has_glued_dominos,
         )
 
         super().__init__(components=[domino_comp], config=config, use_gui=use_gui)
@@ -472,8 +453,9 @@ class PyBulletDominoFanEnvNew(PyBulletDominoComposedEnv):
     """Backward-compatible domino + fan + ball environment class."""
 
     def __init__(
-        self, config: Optional[PyBulletConfig] = None, use_gui: bool = True
+        self, config: Optional[DominoConfig] = None, use_gui: bool = True
     ) -> None:
+        config = DominoConfig._upgrade(config or DominoConfig())
         workspace_bounds = {
             "x_lb": self.x_lb,
             "x_ub": self.x_ub,
@@ -484,13 +466,13 @@ class PyBulletDominoFanEnvNew(PyBulletDominoComposedEnv):
         }
 
         max_dominos = max(
-            max(self.domino_train_num_dominos), max(self.domino_test_num_dominos)
+            max(config.domino_train_num_dominos), max(config.domino_test_num_dominos)
         )
         max_targets = max(
-            max(self.domino_train_num_targets), max(self.domino_test_num_targets)
+            max(config.domino_train_num_targets), max(config.domino_test_num_targets)
         )
         max_pivots = max(
-            max(self.domino_train_num_pivots), max(self.domino_test_num_pivots)
+            max(config.domino_train_num_pivots), max(config.domino_test_num_pivots)
         )
 
         domino_comp = DominoComponent(
@@ -498,8 +480,8 @@ class PyBulletDominoFanEnvNew(PyBulletDominoComposedEnv):
             num_targets_max=max_targets,
             num_pivots_max=max_pivots,
             workspace_bounds=workspace_bounds,
-            use_domino_blocks_as_target=self.domino_use_domino_blocks_as_target,
-            has_glued_dominos=self.domino_has_glued_dominos,
+            use_domino_blocks_as_target=config.domino_use_domino_blocks_as_target,
+            has_glued_dominos=config.domino_has_glued_dominos,
         )
 
         fan_comp = FanComponent(
@@ -543,8 +525,9 @@ class PyBulletDominoFanRampEnv(PyBulletDominoComposedEnv):
     """Domino + fan + ball + ramp environment class."""
 
     def __init__(
-        self, config: Optional[PyBulletConfig] = None, use_gui: bool = True
+        self, config: Optional[DominoConfig] = None, use_gui: bool = True
     ) -> None:
+        config = DominoConfig._upgrade(config or DominoConfig())
         workspace_bounds = {
             "x_lb": self.x_lb,
             "x_ub": self.x_ub,
@@ -555,13 +538,13 @@ class PyBulletDominoFanRampEnv(PyBulletDominoComposedEnv):
         }
 
         max_dominos = max(
-            max(self.domino_train_num_dominos), max(self.domino_test_num_dominos)
+            max(config.domino_train_num_dominos), max(config.domino_test_num_dominos)
         )
         max_targets = max(
-            max(self.domino_train_num_targets), max(self.domino_test_num_targets)
+            max(config.domino_train_num_targets), max(config.domino_test_num_targets)
         )
         max_pivots = max(
-            max(self.domino_train_num_pivots), max(self.domino_test_num_pivots)
+            max(config.domino_train_num_pivots), max(config.domino_test_num_pivots)
         )
 
         domino_comp = DominoComponent(
@@ -569,8 +552,8 @@ class PyBulletDominoFanRampEnv(PyBulletDominoComposedEnv):
             num_targets_max=max_targets,
             num_pivots_max=max_pivots,
             workspace_bounds=workspace_bounds,
-            use_domino_blocks_as_target=self.domino_use_domino_blocks_as_target,
-            has_glued_dominos=self.domino_has_glued_dominos,
+            use_domino_blocks_as_target=config.domino_use_domino_blocks_as_target,
+            has_glued_dominos=config.domino_has_glued_dominos,
         )
 
         fan_comp = FanComponent(
@@ -620,8 +603,9 @@ class PyBulletDominoFanRampStairsEnv(PyBulletDominoComposedEnv):
     """Domino + fan + ball + ramp + stairs environment class."""
 
     def __init__(
-        self, config: Optional[PyBulletConfig] = None, use_gui: bool = True
+        self, config: Optional[DominoConfig] = None, use_gui: bool = True
     ) -> None:
+        config = DominoConfig._upgrade(config or DominoConfig())
         workspace_bounds = {
             "x_lb": self.x_lb,
             "x_ub": self.x_ub,
@@ -632,13 +616,13 @@ class PyBulletDominoFanRampStairsEnv(PyBulletDominoComposedEnv):
         }
 
         max_dominos = max(
-            max(self.domino_train_num_dominos), max(self.domino_test_num_dominos)
+            max(config.domino_train_num_dominos), max(config.domino_test_num_dominos)
         )
         max_targets = max(
-            max(self.domino_train_num_targets), max(self.domino_test_num_targets)
+            max(config.domino_train_num_targets), max(config.domino_test_num_targets)
         )
         max_pivots = max(
-            max(self.domino_train_num_pivots), max(self.domino_test_num_pivots)
+            max(config.domino_train_num_pivots), max(config.domino_test_num_pivots)
         )
 
         domino_comp = DominoComponent(
@@ -646,8 +630,8 @@ class PyBulletDominoFanRampStairsEnv(PyBulletDominoComposedEnv):
             num_targets_max=max_targets,
             num_pivots_max=max_pivots,
             workspace_bounds=workspace_bounds,
-            use_domino_blocks_as_target=self.domino_use_domino_blocks_as_target,
-            has_glued_dominos=self.domino_has_glued_dominos,
+            use_domino_blocks_as_target=config.domino_use_domino_blocks_as_target,
+            has_glued_dominos=config.domino_has_glued_dominos,
         )
 
         fan_comp = FanComponent(

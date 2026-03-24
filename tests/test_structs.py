@@ -1,8 +1,9 @@
 """Comprehensive tests for mara_robosim.structs.
 
-Tests cover Type, Object, Variable, State, Action, Predicate, GroundAtom,
-LiftedAtom, EnvironmentTask, and PyBulletState data structures. All tests are
-pure unit tests and do not require PyBullet or any simulator.
+Tests cover Type, Object, Variable, State, Action, Predicate,
+GroundAtom, LiftedAtom, EnvironmentTask, and PyBulletState data
+structures. All tests are pure unit tests and do not require PyBullet or
+any simulator.
 """
 
 import copy

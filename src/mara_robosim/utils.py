@@ -173,9 +173,10 @@ class Circle(_Geom2D):
 class Rectangle(_Geom2D):
     """A rectangle with origin at the bottom-left corner.
 
-    Following the convention in ``matplotlib.patches.Rectangle``, the origin
-    is at the bottom-left corner and *theta* is the anti-clockwise rotation
-    (in **radians**, between ``-pi`` and ``pi``) about that point.
+    Following the convention in ``matplotlib.patches.Rectangle``, the
+    origin is at the bottom-left corner and *theta* is the anti-
+    clockwise rotation (in **radians**, between ``-pi`` and ``pi``)
+    about that point.
     """
 
     x: float
@@ -309,8 +310,8 @@ class Rectangle(_Geom2D):
 def line_segments_intersect(seg1: LineSegment, seg2: LineSegment) -> bool:
     """Check if two line segments intersect.
 
-    Uses relative orientation; allows for collinearity, and only checks if
-    each segment straddles the line containing the other.
+    Uses relative orientation; allows for collinearity, and only checks
+    if each segment straddles the line containing the other.
     """
 
     def _subtract(
@@ -513,10 +514,12 @@ class RRT(Generic[_RRTState]):
         sample_goal_eps: float = 0.0,
     ) -> Optional[List[_RRTState]]:
         """Query for a collision-free path from *start* to any state
-        satisfying *goal_fn*.
+        satisfying.
 
-        Uses *goal_sampler* to produce candidate targets.  Returns ``None``
-        if no path is found.
+        *goal_fn*.
+
+        Uses *goal_sampler* to produce candidate targets.  Returns
+        ``None`` if no path is found.
         """
         if self._collision_fn(start):
             return None

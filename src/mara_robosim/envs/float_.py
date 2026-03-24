@@ -1,8 +1,8 @@
 """Optimized single-object communicating vessel example.
 
-A robot interacts with blocks in a communicating vessel filled with water.
-Light blocks float on the water surface; heavy blocks sink and displace water,
-raising the water level across both compartments.
+A robot interacts with blocks in a communicating vessel filled with
+water. Light blocks float on the water surface; heavy blocks sink and
+displace water, raising the water level across both compartments.
 """
 
 import logging
@@ -12,7 +12,7 @@ import numpy as np
 import pybullet as p
 
 from mara_robosim import utils
-from mara_robosim.config import PyBulletConfig
+from mara_robosim.config import FloatConfig, PyBulletConfig
 from mara_robosim.envs.base_env import PyBulletEnv, create_pybullet_block
 from mara_robosim.pybullet_helpers.geometry import Pose3D, Quaternion
 from mara_robosim.pybullet_helpers.objects import (
@@ -137,9 +137,6 @@ class PyBulletFloatEnv(PyBulletEnv):
         1.0,
     )
 
-    # Domain-specific setting (was CFG.float_water_level_doesnt_raise)
-    water_level_doesnt_raise: ClassVar[bool] = False
-
     # Types
     _robot_type = Type("robot", ["x", "y", "z", "fingers", "tilt", "wrist"])
     _vessel_type = Type("vessel", ["x", "y", "z", "water_height"])
@@ -150,6 +147,9 @@ class PyBulletFloatEnv(PyBulletEnv):
     def __init__(
         self, config: Optional[PyBulletConfig] = None, use_gui: bool = True
     ) -> None:
+        config = FloatConfig._upgrade(config or FloatConfig())
+        self._config = config  # set early; base __init__ will also set it
+
         self._robot = Object("robot", self._robot_type)
         self._vessel = Object("vessel", self._vessel_type)
         self._block0 = Object("block0", self._block_type)
@@ -386,7 +386,7 @@ class PyBulletFloatEnv(PyBulletEnv):
         If so, update water displacement and recalc water level. Returns
         True if the water level changed, else False.
         """
-        if self.water_level_doesnt_raise:
+        if self._config.water_level_doesnt_raise:
             return False
         old_height = self._current_water_height
         # Start from total volume = 2 compartments * old_height * area

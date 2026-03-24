@@ -18,7 +18,8 @@ from mara_robosim.structs import Action, State
 def _resolve_cls(
     env_cls: Union[str, TypingType[PyBulletEnv]],
 ) -> TypingType[PyBulletEnv]:
-    """Resolve an env class from a string like 'mara_robosim.envs.ants:PyBulletAntsEnv'."""
+    """Resolve an env class from a string like
+    'mara_robosim.envs.ants:PyBulletAntsEnv'."""
     if isinstance(env_cls, str):
         module_path, cls_name = env_cls.rsplit(":", 1)
         module = importlib.import_module(module_path)
@@ -46,13 +47,14 @@ class MARARoboSimEnv(gymnasium.Env):
         super().__init__()
         self.render_mode = render_mode
         use_gui = render_mode == "human"
-        self._config = config or PyBulletConfig()
-
         # Resolve string entry points to actual classes.
         resolved_cls = _resolve_cls(env_cls)
 
         # Create the underlying PyBullet environment.
-        self._env = resolved_cls(config=self._config, use_gui=use_gui, **env_kwargs)
+        # If no config is provided, let the env class create its own
+        # domain-specific default (e.g. AntsConfig, BlocksConfig).
+        self._env = resolved_cls(config=config, use_gui=use_gui, **env_kwargs)
+        self._config = self._env._config
 
         # Convert gym.spaces.Box → gymnasium.spaces.Box (the underlying env
         # uses the old gym API).
